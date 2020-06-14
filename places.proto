@@ -1,0 +1,35 @@
+syntax = "proto3";
+package places;
+
+import "google/protobuf/timestamp.proto";
+
+message Place {
+  int32 id = 1;
+  string name = 2;
+  string location = 3;
+  
+  enum PlaceType {
+    BAR = 0;
+    CAFE = 1;
+    RESTAURANT = 2;
+    SHOP = 3;
+    STREET = 4;
+    SQUARE = 5;
+    BUILDING = 6;
+    LAKE = 7;
+    RIVER = 8;
+    MOUNTAIN = 9;
+    STATION = 10;
+    OUTDOOR = 11;
+  }
+
+  PlaceType type = 4;
+
+  string comment = 5;
+
+  google.protobuf.Timestamp lastUpdated = 6;
+}
+
+message Places {
+  repeated Place places = 1;
+}
