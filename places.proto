@@ -1,10 +1,18 @@
 syntax = "proto3";
+
+option go_package = "github.com/niklek/api-grpc;api_grpc";
+
 package places;
 
 import "google/protobuf/timestamp.proto";
 
+// The service definition
+service Places {
+  rpc GetById (PlaceIdRequest) returns (PlaceResponse) {}
+}
+
 message Place {
-  int32 id = 1;
+  int64 id = 1;
   string name = 2;
   string location = 3;
   
@@ -30,6 +38,16 @@ message Place {
   google.protobuf.Timestamp lastUpdated = 6;
 }
 
-message Places {
+// The request message
+message PlaceIdRequest {
+  int64 id = 1;
+}
+
+// The response message
+message PlaceResponse {
+  string message = 1;
+}
+
+message PlacesResponse {
   repeated Place places = 1;
 }
