@@ -45,7 +45,7 @@ message PlaceIdRequest {
 
 // The response message
 message PlaceResponse {
-  string message = 1;
+  Place place = 1;
 }
 
 message PlacesResponse {

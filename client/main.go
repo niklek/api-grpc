@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	address     = "localhost:50051"
+	address   = "localhost:50051"
 	defaultId = int64(42)
 )
 
@@ -30,10 +30,10 @@ func main() {
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	r, err := c.GetById(ctx, &pb.PlaceIdRequest{Id: placeId})
+	p, err := c.GetById(ctx, &pb.PlaceIdRequest{Id: placeId})
 	if err != nil {
 		log.Fatalf("could not get place by id: %d error: %v", placeId, err)
 	}
-	log.Printf("Place message: %s", r.GetMessage())
+	log.Printf("Place id: %#v", p.GetPlace())
 }
 

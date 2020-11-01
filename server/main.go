@@ -5,7 +5,6 @@ import (
 	"log"
 	"net"
 	"context"
-	"strconv"
 	pb "api-grpc/places"
 )
 
@@ -17,7 +16,7 @@ type server struct {
 
 func (s *server) GetById(ctx context.Context, in *pb.PlaceIdRequest) (*pb.PlaceResponse, error) {
 	log.Printf("Received: get place by id: %v", in.GetId())
-	return &pb.PlaceResponse{Message: "Place id: " + strconv.Itoa(int(in.GetId()))}, nil
+	return &pb.PlaceResponse{Place: &pb.Place{Id: in.GetId()}}, nil
 }
 
 func main() {
