@@ -34,6 +34,6 @@ func main() {
 	if err != nil {
 		log.Fatalf("could not get place by id: %d error: %v", placeId, err)
 	}
-	log.Printf("Place id: %#v", p.GetPlace())
+	log.Printf("Place id: %d name: %s", p.GetPlace().GetId(), p.GetPlace().GetName())
 }
 

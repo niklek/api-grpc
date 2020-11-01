@@ -15,8 +15,14 @@ type server struct {
 }
 
 func (s *server) GetById(ctx context.Context, in *pb.PlaceIdRequest) (*pb.PlaceResponse, error) {
+
+	dummyPlace := &pb.Place{
+		Id: in.GetId(),
+		Name: "Dummy name",
+		Location: "Dummy location",
+	}
 	log.Printf("Received: get place by id: %v", in.GetId())
-	return &pb.PlaceResponse{Place: &pb.Place{Id: in.GetId()}}, nil
+	return &pb.PlaceResponse{Place: dummyPlace}, nil
 }
 
 func main() {
