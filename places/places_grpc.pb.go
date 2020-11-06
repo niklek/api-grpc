@@ -93,5 +93,5 @@ var _Places_serviceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "places.proto",
+	Metadata: "places/places.proto",
 }
