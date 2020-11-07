@@ -18,6 +18,8 @@ import (
 const (
 	serverAddress = "localhost:50051"
 	caCertFile = "cert/ca-cert.pem"
+	clientCertFile = "cert/client-cert.pem"
+	clientKeyFile  = "cert/client-key.pem"
 	defaultId = int64(42)
 )
 
@@ -34,8 +36,15 @@ func loadTLSCredentials() (credentials.TransportCredentials, error) {
 		return nil, fmt.Errorf("failed to add server CA's certificate")
 	}
 
+	// Load client's certificate and private key
+	clientCert, err := tls.LoadX509KeyPair(clientCertFile, clientKeyFile)
+	if err != nil {
+		return nil, err
+	}
+
 	// Create the credentials and return it
 	config := &tls.Config{
+		Certificates: []tls.Certificate{clientCert},
 		RootCAs: certPool,
 	}
 

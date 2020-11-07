@@ -4,7 +4,10 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"crypto/tls"
+	"crypto/x509"
+	"io/ioutil"
 	"log"
+	"fmt"
 	"net"
 	"context"
 	pb "api-grpc/places"
@@ -12,8 +15,9 @@ import (
 
 const (
 	port = ":50051"
-	serverCertFile   = "cert/server-cert.pem"
-	serverKeyFile    = "cert/server-key.pem"
+	caCertFile = "cert/ca-cert.pem"
+	serverCertFile = "cert/server-cert.pem"
+	serverKeyFile  = "cert/server-key.pem"
 )
 
 type server struct {
@@ -22,6 +26,17 @@ type server struct {
 
 // Loads TLS credentials
 func loadTLSCredentials() (credentials.TransportCredentials, error) {
+	// Load certificate of the CA who signed client's certificate
+	caCert, err := ioutil.ReadFile(caCertFile)
+	if err != nil {
+		return nil, err
+	}
+
+	certPool := x509.NewCertPool()
+	if !certPool.AppendCertsFromPEM(caCert) {
+		return nil, fmt.Errorf("failed to add server CA's certificate")
+	}
+
     // Load server's certificate and private key
 	serverCert, err := tls.LoadX509KeyPair(serverCertFile, serverKeyFile)
 	if err != nil {
@@ -31,7 +46,8 @@ func loadTLSCredentials() (credentials.TransportCredentials, error) {
 	// Create the credentials and return it
 	config := &tls.Config{
 		Certificates: []tls.Certificate{serverCert},
-        ClientAuth:   tls.NoClientCert,
+		ClientAuth: tls.RequireAndVerifyClientCert,
+		ClientCAs: certPool,
 	}
 
     return credentials.NewTLS(config), nil
