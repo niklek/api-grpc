@@ -51,17 +51,38 @@ func loadTLSCredentials() (credentials.TransportCredentials, error) {
 	return credentials.NewTLS(config), nil
 }
 
+func timingInterceptor(
+	ctx context.Context,
+	method string,
+	req interface{},
+	reply interface{},
+	cc *grpc.ClientConn,
+	invoker grpc.UnaryInvoker,
+	opts ...grpc.CallOption,
+) error {
+	start := time.Now()
+	err := invoker(ctx, method, req, reply, cc, opts...)
+
+	// verbose logging
+	log.Printf("Method:%s\tRequest:%#v\tResponse:%#v\tTime:%v\tError:%v\n", method, req, reply, time.Since(start), err)
+	return err
+}
+
 func main() {
 	// connect to the server
 	//creds, _ := credentials.NewClientTLSFromFile(certFile, "")
 	creds, err := loadTLSCredentials()
 	if err != nil {
-		log.Fatal("cannot load TLS credentials: ", err)
+		log.Fatal("Cannot load TLS credentials: ", err)
 	}
 
-	conn, err := grpc.Dial(serverAddr, grpc.WithTransportCredentials(creds))
+	conn, err := grpc.Dial(
+		serverAddr,
+		grpc.WithUnaryInterceptor(timingInterceptor),
+		grpc.WithTransportCredentials(creds),
+	)
 	if err != nil {
-		log.Fatalf("failed to connect to the server: %v", err)
+		log.Fatalf("Failed to connect to the server: %v", err)
 	}
 	defer conn.Close()
 	c := pb.NewPlacesClient(conn)
@@ -77,7 +98,8 @@ func main() {
 	defer cancel()
 	p, err := c.GetById(ctx, &pb.PlaceIdRequest{Id: placeId})
 	if err != nil {
-		log.Printf("could not get place by id: %d error: %v", placeId, err)
+		log.Printf("Could not get place by id: %d error: %v", placeId, err)
 	}
+	// temp output
 	log.Printf("Place id: %d name: %s", p.GetPlace().GetId(), p.GetPlace().GetName())
 }

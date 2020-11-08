@@ -66,7 +66,7 @@ func unaryInterceptor(ctx context.Context,
 	h, err := handler(ctx, req)
 
 	// logging
-	log.Printf("Method:%s\tDuration:%s\tError:%v\n", info.FullMethod, time.Since(start), err)
+	log.Printf("Method:%s\tResponseTime:%s\tError:%v\n", info.FullMethod, time.Since(start), err)
 
 	return h, err
 }
