@@ -1,21 +1,22 @@
 package main
 
 import (
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
+	pb "api-grpc/places"
+	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"fmt"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"io/ioutil"
 	"log"
-	"fmt"
 	"net"
-	"context"
-	pb "api-grpc/places"
+	"time"
 )
 
 const (
-	port = ":50051"
-	caCertFile = "cert/ca-cert.pem"
+	port           = ":50051"
+	caCertFile     = "cert/ca-cert.pem"
 	serverCertFile = "cert/server-cert.pem"
 	serverKeyFile  = "cert/server-key.pem"
 )
@@ -37,7 +38,7 @@ func loadTLSCredentials() (credentials.TransportCredentials, error) {
 		return nil, fmt.Errorf("failed to add server CA's certificate")
 	}
 
-    // Load server's certificate and private key
+	// Load server's certificate and private key
 	serverCert, err := tls.LoadX509KeyPair(serverCertFile, serverKeyFile)
 	if err != nil {
 		return nil, err
@@ -46,19 +47,37 @@ func loadTLSCredentials() (credentials.TransportCredentials, error) {
 	// Create the credentials and return it
 	config := &tls.Config{
 		Certificates: []tls.Certificate{serverCert},
-		ClientAuth: tls.RequireAndVerifyClientCert,
-		ClientCAs: certPool,
+		ClientAuth:   tls.RequireAndVerifyClientCert,
+		ClientCAs:    certPool,
 	}
 
-    return credentials.NewTLS(config), nil
+	return credentials.NewTLS(config), nil
+}
+
+// Unary interceptor to handle logging and auth
+func unaryInterceptor(ctx context.Context,
+	req interface{},
+	info *grpc.UnaryServerInfo,
+	handler grpc.UnaryHandler) (interface{}, error) {
+	start := time.Now()
+
+	// TODO auth
+
+	h, err := handler(ctx, req)
+
+	// logging
+	log.Printf("Method:%s\tDuration:%s\tError:%v\n", info.FullMethod, time.Since(start), err)
+
+	return h, err
 }
 
 // Returns a place by id
 func (s *server) GetById(ctx context.Context, in *pb.PlaceIdRequest) (*pb.PlaceResponse, error) {
 
+	// TODO request storage
 	dummyPlace := &pb.Place{
-		Id: in.GetId(),
-		Name: "Dummy name",
+		Id:       in.GetId(),
+		Name:     "Dummy name",
 		Location: "Dummy location",
 	}
 
@@ -71,20 +90,21 @@ func (s *server) GetById(ctx context.Context, in *pb.PlaceIdRequest) (*pb.PlaceR
 func main() {
 	//creds, _ := credentials.NewServerTLSFromFile(certFile, keyFile)
 	tlsCredentials, err := loadTLSCredentials()
-    if err != nil {
-        log.Fatal("cannot load TLS credentials: ", err)
-    }
+	if err != nil {
+		log.Fatal("Cannot load TLS credentials: ", err)
+	}
+	s := grpc.NewServer(
+		grpc.Creds(tlsCredentials),
+		grpc.UnaryInterceptor(unaryInterceptor),
+	)
 
-    s := grpc.NewServer(grpc.Creds(tlsCredentials))
-	
 	lis, err := net.Listen("tcp", port)
 	if err != nil {
-		log.Fatalf("failed to listen %v", err)
+		log.Fatalf("Failed to listen %v", err)
 	}
 
 	pb.RegisterPlacesServer(s, &server{})
 	if err := s.Serve(lis); err != nil {
-		log.Fatalf("failed to serve: %v", err)
+		log.Fatalf("Failed to serve: %v", err)
 	}
 }
-

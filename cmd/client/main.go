@@ -1,26 +1,26 @@
 package main
 
 import (
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
-	"log"
-	"os"
-	"time"
+	pb "api-grpc/places"
 	"context"
-	"strconv"
 	"crypto/tls"
 	"crypto/x509"
-	"io/ioutil"
 	"fmt"
-	pb "api-grpc/places"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
+	"io/ioutil"
+	"log"
+	"os"
+	"strconv"
+	"time"
 )
 
 const (
-	serverAddress = "localhost:50051"
-	caCertFile = "cert/ca-cert.pem"
+	serverAddr     = "localhost:50051"
+	caCertFile     = "cert/ca-cert.pem"
 	clientCertFile = "cert/client-cert.pem"
 	clientKeyFile  = "cert/client-key.pem"
-	defaultId = int64(42)
+	defaultId      = int64(42)
 )
 
 // Loads TLS credentials
@@ -45,7 +45,7 @@ func loadTLSCredentials() (credentials.TransportCredentials, error) {
 	// Create the credentials and return it
 	config := &tls.Config{
 		Certificates: []tls.Certificate{clientCert},
-		RootCAs: certPool,
+		RootCAs:      certPool,
 	}
 
 	return credentials.NewTLS(config), nil
@@ -55,11 +55,11 @@ func main() {
 	// connect to the server
 	//creds, _ := credentials.NewClientTLSFromFile(certFile, "")
 	creds, err := loadTLSCredentials()
-    if err != nil {
-        log.Fatal("cannot load TLS credentials: ", err)
-    }
+	if err != nil {
+		log.Fatal("cannot load TLS credentials: ", err)
+	}
 
-    conn, err := grpc.Dial(serverAddress, grpc.WithTransportCredentials(creds))
+	conn, err := grpc.Dial(serverAddr, grpc.WithTransportCredentials(creds))
 	if err != nil {
 		log.Fatalf("failed to connect to the server: %v", err)
 	}

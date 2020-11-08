@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-option go_package = "github.com/niklek/api-grpc;api_grpc";
+//option go_package = "github.com/niklek/api-grpc;api_grpc";
 
 package places;
 
