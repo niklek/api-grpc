@@ -23,7 +23,7 @@ make cert
 
 3. Run server (TODO build)
 ```sh
-go run server/main.go
+PORT=50051 CA_CERT_FILENAME=cert/ca-cert.pem SERVER_CERT_FILENAME=cert/server-cert.pem SERVER_KEY_FILENAME=cert/server-key.pem go run server/main.go
 ```
 
 4. Run client (TODO build)
@@ -40,7 +40,6 @@ go run cmd/client/main.go
 
 * Add authentication Middleware
 * Graceful shutdown
-* Add configuration
 * ldflags
 * Replace standard logger
 * Add monitoring

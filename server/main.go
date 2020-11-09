@@ -11,14 +11,8 @@ import (
 	"io/ioutil"
 	"log"
 	"net"
+	"os"
 	"time"
-)
-
-const (
-	port           = ":50051"
-	caCertFile     = "cert/ca-cert.pem"
-	serverCertFile = "cert/server-cert.pem"
-	serverKeyFile  = "cert/server-key.pem"
 )
 
 type server struct {
@@ -26,7 +20,7 @@ type server struct {
 }
 
 // Loads TLS credentials
-func loadTLSCredentials() (credentials.TransportCredentials, error) {
+func loadTLSCredentials(caCertFile, serverCertFile, serverKeyFile string) (credentials.TransportCredentials, error) {
 	// Load certificate of the CA who signed client's certificate
 	caCert, err := ioutil.ReadFile(caCertFile)
 	if err != nil {
@@ -88,8 +82,28 @@ func (s *server) GetById(ctx context.Context, in *pb.PlaceIdRequest) (*pb.PlaceR
 }
 
 func main() {
+	// Load configuration from env
+	port := os.Getenv("PORT")
+	if port == "" {
+		log.Fatal("PORT is not set")
+	}
+	caCertFile := os.Getenv("CA_CERT_FILENAME")
+	if caCertFile == "" {
+		log.Fatal("CA_CERT_FILENAME is not set")
+	}
+	serverCertFile := os.Getenv("SERVER_CERT_FILENAME")
+	if serverCertFile == "" {
+		log.Fatal("SERVER_CERT_FILENAME is not set")
+	}
+	serverKeyFile := os.Getenv("SERVER_KEY_FILENAME")
+	if serverKeyFile == "" {
+		log.Fatal("SERVER_KEY_FILENAME is not set")
+	}
+
+	log.Println("Configuration is ready")
+
 	//creds, _ := credentials.NewServerTLSFromFile(certFile, keyFile)
-	tlsCredentials, err := loadTLSCredentials()
+	tlsCredentials, err := loadTLSCredentials(caCertFile, serverCertFile, serverKeyFile)
 	if err != nil {
 		log.Fatal("Cannot load TLS credentials: ", err)
 	}
@@ -98,9 +112,9 @@ func main() {
 		grpc.UnaryInterceptor(unaryInterceptor),
 	)
 
-	lis, err := net.Listen("tcp", port)
+	lis, err := net.Listen("tcp", ":"+port)
 	if err != nil {
-		log.Fatalf("Failed to listen %v", err)
+		log.Fatalf("Failed to listen port:%s %v", port, err)
 	}
 
 	pb.RegisterPlacesServer(s, &server{})
