@@ -13,6 +13,8 @@ import (
 	"net"
 	"os"
 	"time"
+	"os/signal"
+	"syscall"
 )
 
 type server struct {
@@ -82,7 +84,7 @@ func (s *server) GetById(ctx context.Context, in *pb.PlaceIdRequest) (*pb.PlaceR
 }
 
 func main() {
-	// Load configuration from env
+	// Load configuration params from env, no default values
 	port := os.Getenv("PORT")
 	if port == "" {
 		log.Fatal("PORT is not set")
@@ -99,26 +101,48 @@ func main() {
 	if serverKeyFile == "" {
 		log.Fatal("SERVER_KEY_FILENAME is not set")
 	}
-
 	log.Println("Configuration is ready")
+
+	// Shutdown the server
+	interrupt := make(chan os.Signal, 1)
+	shutdown := make(chan error, 2)
+	signal.Notify(interrupt, os.Interrupt, syscall.SIGTERM)
+	defer signal.Stop(interrupt)
 
 	//creds, _ := credentials.NewServerTLSFromFile(certFile, keyFile)
 	tlsCredentials, err := loadTLSCredentials(caCertFile, serverCertFile, serverKeyFile)
 	if err != nil {
 		log.Fatal("Cannot load TLS credentials: ", err)
 	}
+
 	s := grpc.NewServer(
 		grpc.Creds(tlsCredentials),
 		grpc.UnaryInterceptor(unaryInterceptor),
 	)
 
-	lis, err := net.Listen("tcp", ":"+port)
-	if err != nil {
-		log.Fatalf("Failed to listen port:%s %v", port, err)
+	go func() {
+		lis, err := net.Listen("tcp", ":"+port)
+		if err != nil {
+			log.Printf("Failed to listen port:%s %v", port, err)
+			shutdown <- err
+		}
+		defer lis.Close()
+
+		pb.RegisterPlacesServer(s, &server{})
+		if err := s.Serve(lis); err != nil {
+			log.Printf("Failed to serve: %v", err)
+			shutdown <- err
+		}
+	}()
+
+	select {
+	case x := <-interrupt:
+		log.Println("Received signal", x.String())
+	case err := <-shutdown:
+		log.Println("Received an error from server err:", err)
 	}
 
-	pb.RegisterPlacesServer(s, &server{})
-	if err := s.Serve(lis); err != nil {
-		log.Fatalf("Failed to serve: %v", err)
-	}
+	log.Println("Stopping the server...")
+
+	s.GracefulStop()
 }
