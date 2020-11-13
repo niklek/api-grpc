@@ -1,3 +1,6 @@
+// Test gRPC client to the server, supports mutual TLS
+// Requests gRPC API GetById using a defaultId or an id from os.Args
+// Logs request time (interceptor), prints output using standard logger
 package main
 
 import (

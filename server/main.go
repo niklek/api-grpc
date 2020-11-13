@@ -6,13 +6,15 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
+	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
+	grpc_ctxtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"io/ioutil"
-	"log"
 	"net"
 	"os"
-	"time"
 	"os/signal"
 	"syscall"
 )
@@ -50,23 +52,6 @@ func loadTLSCredentials(caCertFile, serverCertFile, serverKeyFile string) (crede
 	return credentials.NewTLS(config), nil
 }
 
-// Unary interceptor to handle logging and auth
-func unaryInterceptor(ctx context.Context,
-	req interface{},
-	info *grpc.UnaryServerInfo,
-	handler grpc.UnaryHandler) (interface{}, error) {
-	start := time.Now()
-
-	// TODO auth
-
-	h, err := handler(ctx, req)
-
-	// logging
-	log.Printf("Method:%s\tResponseTime:%s\tError:%v\n", info.FullMethod, time.Since(start), err)
-
-	return h, err
-}
-
 // Returns a place by id
 func (s *server) GetById(ctx context.Context, in *pb.PlaceIdRequest) (*pb.PlaceResponse, error) {
 
@@ -78,32 +63,40 @@ func (s *server) GetById(ctx context.Context, in *pb.PlaceIdRequest) (*pb.PlaceR
 	}
 
 	// test output
-	log.Printf("Received: get place by id: %v", in.GetId())
+	fmt.Println("Received: get place by id:", in.GetId())
 
 	return &pb.PlaceResponse{Place: dummyPlace}, nil
 }
 
 func main() {
+	logz, _ := zap.NewProduction()
+	defer logz.Sync()
+	logz.Info("Starting server",
+		zap.String("logger", "zap"),
+	)
+
 	// Load configuration params from env, no default values
 	port := os.Getenv("PORT")
 	if port == "" {
-		log.Fatal("PORT is not set")
+		logz.Fatal("PORT is not set")
 	}
 	caCertFile := os.Getenv("CA_CERT_FILENAME")
 	if caCertFile == "" {
-		log.Fatal("CA_CERT_FILENAME is not set")
+		logz.Fatal("CA_CERT_FILENAME is not set")
 	}
 	serverCertFile := os.Getenv("SERVER_CERT_FILENAME")
 	if serverCertFile == "" {
-		log.Fatal("SERVER_CERT_FILENAME is not set")
+		logz.Fatal("SERVER_CERT_FILENAME is not set")
 	}
 	serverKeyFile := os.Getenv("SERVER_KEY_FILENAME")
 	if serverKeyFile == "" {
-		log.Fatal("SERVER_KEY_FILENAME is not set")
+		logz.Fatal("SERVER_KEY_FILENAME is not set")
 	}
-	log.Println("Configuration is ready")
+	logz.Info("Configuration is ready",
+		zap.String("logger", "zap"),
+	)
 
-	// Shutdown the server
+	// channels for graceful shutdown
 	interrupt := make(chan os.Signal, 1)
 	shutdown := make(chan error, 2)
 	signal.Notify(interrupt, os.Interrupt, syscall.SIGTERM)
@@ -112,37 +105,41 @@ func main() {
 	//creds, _ := credentials.NewServerTLSFromFile(certFile, keyFile)
 	tlsCredentials, err := loadTLSCredentials(caCertFile, serverCertFile, serverKeyFile)
 	if err != nil {
-		log.Fatal("Cannot load TLS credentials: ", err)
+		logz.Fatal("Cannot load TLS credentials: ",
+			zap.Error(err),
+		)
 	}
 
+	// add middleware with zap logger
+	grpc_zap.ReplaceGrpcLoggerV2(logz)
 	s := grpc.NewServer(
 		grpc.Creds(tlsCredentials),
-		grpc.UnaryInterceptor(unaryInterceptor),
+		grpc_middleware.WithUnaryServerChain(
+			grpc_ctxtags.UnaryServerInterceptor(grpc_ctxtags.WithFieldExtractor(grpc_ctxtags.CodeGenRequestFieldExtractor)),
+			grpc_zap.UnaryServerInterceptor(logz),
+		),
 	)
 
 	go func() {
 		lis, err := net.Listen("tcp", ":"+port)
 		if err != nil {
-			log.Printf("Failed to listen port:%s %v", port, err)
 			shutdown <- err
 		}
 		defer lis.Close()
 
 		pb.RegisterPlacesServer(s, &server{})
 		if err := s.Serve(lis); err != nil {
-			log.Printf("Failed to serve: %v", err)
 			shutdown <- err
 		}
 	}()
 
+	// Lister for interruption and gracefully stop the server
 	select {
 	case x := <-interrupt:
-		log.Println("Received signal", x.String())
+		logz.Info("Received signal", zap.String("signal", x.String()))
 	case err := <-shutdown:
-		log.Println("Received an error from server err:", err)
+		logz.Error("Received an error from server", zap.Error(err))
 	}
-
-	log.Println("Stopping the server...")
-
+	logz.Info("Stopping the server...")
 	s.GracefulStop()
 }
